@@ -16,7 +16,7 @@ default = ["tls"]
 tls = ["libdoh/tls"]
 
 [dependencies]
-libdoh = { path = "src/libdoh", version = "0.9.14", default-features = false }
+libdoh = { path = "src/libdoh", version = "0.9.15", default-features = false }
 clap = { version = "4", features = ["std", "cargo", "wrap_help", "string"] }
 dnsstamps = "0.1.10"
 mimalloc = { version = "0.1.48", default-features = false }
