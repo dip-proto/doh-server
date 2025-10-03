@@ -89,79 +89,15 @@ jobs:
           env RUSTFLAGS="-C strip=symbols" CFLAGS="-Wno-date-time" cargo-zigbuild build --target=aarch64-unknown-linux-gnu.2.17 --release
           cargo generate-rpm --target aarch64-unknown-linux-gnu
 
-      - name: Create release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create release and upload assets
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
           draft: true
-          prerelease: false
-
-      - name: Upload Debian package for x86_64
-        id: upload-release-asset-debian-x86_64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_name: "doh-proxy_${{ steps.get_version.outputs.VERSION }}-1_amd64.deb"
-          asset_path: "target/x86_64-unknown-linux-musl/debian/doh-proxy_${{ steps.get_version.outputs.VERSION }}-1_amd64.deb"
-          asset_content_type: application/x-debian-package
-
-      - name: Upload RPM package for x86_64
-        id: upload-release-asset-rpm-x86_64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_name: "doh-proxy-${{ steps.get_version.outputs.VERSION }}-1.x86_64.rpm"
-          asset_path: "target/x86_64-unknown-linux-gnu/generate-rpm/doh-proxy-${{ steps.get_version.outputs.VERSION }}-1.x86_64.rpm"
-          asset_content_type: application/x-redhat-package-manager
-
-      - name: Upload RPM package for aarch64
-        id: upload-release-asset-rpm-aarch64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_name: "doh-proxy-${{ steps.get_version.outputs.VERSION }}-1.aarch64.rpm"
-          asset_path: "target/aarch64-unknown-linux-gnu/generate-rpm/doh-proxy-${{ steps.get_version.outputs.VERSION }}-1.aarch64.rpm"
-          asset_content_type: application/x-redhat-package-manager
-
-      - name: Upload tarball for linux-x86_64
-        id: upload-release-asset-tarball-linux-x86_64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_name: "doh-proxy_${{ steps.get_version.outputs.VERSION }}_linux-x86_64.tar.bz2"
-          asset_path: "doh-proxy_${{ steps.get_version.outputs.VERSION }}_linux-x86_64.tar.bz2"
-          asset_content_type: application/x-tar
-
-      - name: Upload tarball for linux-aarch64
-        id: upload-release-asset-tarball-linux-aarch64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_name: "doh-proxy_${{ steps.get_version.outputs.VERSION }}_linux-aarch64.tar.bz2"
-          asset_path: "doh-proxy_${{ steps.get_version.outputs.VERSION }}_linux-aarch64.tar.bz2"
-          asset_content_type: application/x-tar
-
-      - name: Upload tarball for windows-x86_64
-        id: upload-release-asset-tarball-windows-x86_64
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_name: "doh-proxy_${{ steps.get_version.outputs.VERSION }}_windows-x86_64.zip"
-          asset_path: "doh-proxy_${{ steps.get_version.outputs.VERSION }}_windows-x86_64.zip"
-          asset_content_type: application/zip
+          files: |
+            target/debian/doh-proxy_${{ steps.get_version.outputs.VERSION }}-1_amd64.deb
+            target/debian/doh-proxy_${{ steps.get_version.outputs.VERSION }}-1_arm64.deb
+            target/x86_64-unknown-linux-gnu/generate-rpm/doh-proxy-${{ steps.get_version.outputs.VERSION }}-1.x86_64.rpm
+            target/aarch64-unknown-linux-gnu/generate-rpm/doh-proxy-${{ steps.get_version.outputs.VERSION }}-1.aarch64.rpm
+            doh-proxy_${{ steps.get_version.outputs.VERSION }}_linux-x86_64.tar.bz2
+            doh-proxy_${{ steps.get_version.outputs.VERSION }}_linux-aarch64.tar.bz2
+            doh-proxy_${{ steps.get_version.outputs.VERSION }}_windows-x86_64.zip
