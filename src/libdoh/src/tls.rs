@@ -116,9 +116,11 @@ impl DoH {
                         if tls_acceptor.is_none() || tcp_cnx.is_err() {
                             continue;
                         }
-                        let (raw_stream, _client_addr) = tcp_cnx.unwrap();
+                        let (raw_stream, client_addr) = tcp_cnx.unwrap();
                         if let Ok(stream) = tls_acceptor.as_ref().unwrap().accept(raw_stream).await {
-                            self.clone().client_serve(stream, server.clone()).await
+                            let mut doh = self.clone();
+                            doh.remote_addr = Some(client_addr);
+                            doh.client_serve(stream, server.clone()).await
                         }
                     }
                     new_tls_acceptor = tls_acceptor_receiver.recv().fuse() => {

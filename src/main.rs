@@ -92,6 +92,7 @@ fn main() {
     parse_opts(&mut globals);
     let doh = DoH {
         globals: Arc::new(globals),
+        remote_addr: None,
     };
 
     if let Err(e) = runtime.block_on(doh.entrypoint()) {

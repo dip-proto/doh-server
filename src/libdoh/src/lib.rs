@@ -66,6 +66,7 @@ impl DoHType {
 #[derive(Clone, Debug)]
 pub struct DoH {
     pub globals: Arc<Globals>,
+    pub remote_addr: Option<SocketAddr>,
 }
 
 #[allow(clippy::unnecessary_wraps)]
@@ -82,10 +83,7 @@ fn http_error_with_cache(status_code: StatusCode) -> Result<Response<Body>, http
     // Return error with very long cache time (1 year) to prevent crawler bots from retrying
     let response = Response::builder()
         .status(status_code)
-        .header(
-            hyper::header::CACHE_CONTROL,
-            "max-age=31536000, immutable"
-        )
+        .header(hyper::header::CACHE_CONTROL, "max-age=31536000, immutable")
         .body(Body::empty())
         .unwrap();
     Ok(response)
@@ -148,7 +146,7 @@ impl DoH {
             Ok(DoHType::Standard) => self.serve_doh_get(req).await,
             Ok(DoHType::Oblivious) => self.serve_odoh_get(req).await,
             Ok(DoHType::Json) => self.serve_json_get(req).await,
-            Err(response) => Ok(response),
+            Err(response) => Ok(*response),
         }
     }
 
@@ -157,7 +155,7 @@ impl DoH {
             Ok(DoHType::Standard) => self.serve_doh_post(req).await,
             Ok(DoHType::Oblivious) => self.serve_odoh_post(req).await,
             Ok(DoHType::Json) => http_error(StatusCode::METHOD_NOT_ALLOWED),
-            Err(response) => Ok(response),
+            Err(response) => Ok(*response),
         }
     }
 
@@ -205,7 +203,7 @@ impl DoH {
 
     async fn serve_doh_get(&self, req: Request<Body>) -> Result<Response<Body>, http::Error> {
         let client_ip = if self.globals.enable_ecs {
-            edns_ecs::extract_client_ip(req.headers(), None)
+            edns_ecs::extract_client_ip(req.headers(), self.remote_addr)
         } else {
             None
         };
@@ -223,7 +221,7 @@ impl DoH {
         }
 
         let client_ip = if self.globals.enable_ecs {
-            edns_ecs::extract_client_ip(req.headers(), None)
+            edns_ecs::extract_client_ip(req.headers(), self.remote_addr)
         } else {
             None
         };
@@ -352,7 +350,7 @@ impl DoH {
 
         // Extract client IP if ECS is enabled
         let client_ip = if self.globals.enable_ecs {
-            edns_ecs::extract_client_ip(req.headers(), None)
+            edns_ecs::extract_client_ip(req.headers(), self.remote_addr)
         } else {
             None
         };
@@ -422,7 +420,7 @@ impl DoH {
         None
     }
 
-    fn parse_content_type(req: &Request<Body>) -> Result<DoHType, Response<Body>> {
+    fn parse_content_type(req: &Request<Body>) -> Result<DoHType, Box<Response<Body>>> {
         const CT_DOH: &str = "application/dns-message";
         const CT_ODOH: &str = "application/oblivious-dns-message";
         const CT_JSON: &str = "application/dns-json";
@@ -437,13 +435,10 @@ impl DoH {
                         // Return NOT_ACCEPTABLE with long cache time for crawler bots
                         let response = Response::builder()
                             .status(StatusCode::NOT_ACCEPTABLE)
-                            .header(
-                                hyper::header::CACHE_CONTROL,
-                                "max-age=31536000, immutable"
-                            )
+                            .header(hyper::header::CACHE_CONTROL, "max-age=31536000, immutable")
                             .body(Body::empty())
                             .unwrap();
-                        return Err(response);
+                        return Err(Box::new(response));
                     }
                     Some(content_type) => content_type,
                 }
@@ -453,13 +448,10 @@ impl DoH {
                     // Return BAD_REQUEST with long cache time for invalid content type
                     let response = Response::builder()
                         .status(StatusCode::BAD_REQUEST)
-                        .header(
-                            hyper::header::CACHE_CONTROL,
-                            "max-age=31536000, immutable"
-                        )
+                        .header(hyper::header::CACHE_CONTROL, "max-age=31536000, immutable")
                         .body(Body::empty())
                         .unwrap();
-                    return Err(response);
+                    return Err(Box::new(response));
                 }
                 Ok(content_type) => content_type,
             },
@@ -473,13 +465,10 @@ impl DoH {
                 // Return UNSUPPORTED_MEDIA_TYPE with long cache time
                 let response = Response::builder()
                     .status(StatusCode::UNSUPPORTED_MEDIA_TYPE)
-                    .header(
-                        hyper::header::CACHE_CONTROL,
-                        "max-age=31536000, immutable"
-                    )
+                    .header(hyper::header::CACHE_CONTROL, "max-age=31536000, immutable")
                     .body(Body::empty())
                     .unwrap();
-                Err(response)
+                Err(Box::new(response))
             }
         }
     }
@@ -660,8 +649,10 @@ impl DoH {
         server: Http<LocalExecutor>,
     ) -> Result<(), DoHError> {
         let listener_service = async {
-            while let Ok((stream, _client_addr)) = listener.accept().await {
-                self.clone().client_serve(stream, server.clone()).await;
+            while let Ok((stream, client_addr)) = listener.accept().await {
+                let mut doh = self.clone();
+                doh.remote_addr = Some(client_addr);
+                doh.client_serve(stream, server.clone()).await;
             }
             Ok(()) as Result<(), DoHError>
         };

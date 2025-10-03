@@ -60,7 +60,7 @@ pub fn is_truncated(packet: &[u8]) -> bool {
     BigEndian::read_u16(&packet[DNS_OFFSET_FLAGS..]) & DNS_FLAGS_TC == DNS_FLAGS_TC
 }
 
-fn skip_name(packet: &[u8], offset: usize) -> Result<usize, Error> {
+pub(crate) fn skip_name(packet: &[u8], offset: usize) -> Result<usize, Error> {
     let packet_len = packet.len();
     ensure!(offset < packet_len - 1, "Short packet");
     let mut qname_len: usize = 0;
@@ -89,7 +89,7 @@ fn skip_name(packet: &[u8], offset: usize) -> Result<usize, Error> {
     Ok(offset)
 }
 
-fn traverse_rrs<F: FnMut(usize) -> Result<(), Error>>(
+pub(crate) fn traverse_rrs<F: FnMut(usize) -> Result<(), Error>>(
     packet: &[u8],
     mut offset: usize,
     rrcount: usize,
